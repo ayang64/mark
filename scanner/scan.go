@@ -15,7 +15,7 @@ type Scanner struct {
 }
 
 // should only be called after a successful .Peek()
-func (s *Scanner) Consume() rune {
+func (s *Scanner) consume() rune {
 	r, _, err := s.rs.ReadRune()
 	if err != nil {
 		return utf8.RuneError
@@ -23,17 +23,12 @@ func (s *Scanner) Consume() rune {
 	return r
 }
 
-func (s *Scanner) Peek() (rune, error) {
+func (s *Scanner) peek() (rune, error) {
 	r, _, err := s.rs.ReadRune()
 	if err == nil {
 		s.rs.UnreadRune()
 	}
 	return r, err
-}
-
-// tokens can a string representation
-type Token interface {
-	String() string
 }
 
 func match(rs io.RuneScanner, match func(r rune) (bool, bool, error)) string {
@@ -83,7 +78,7 @@ mainloop:
 
 // scans next token
 func (s *Scanner) Next() (token.Token, error) {
-	r, err := s.Peek()
+	r, err := s.peek()
 	if err != nil {
 		return token.Error{Err: err}, err
 	}
@@ -91,16 +86,16 @@ func (s *Scanner) Next() (token.Token, error) {
 	switch {
 	case r == '\\':
 		// an escaped character.
-		s.Consume() // consume current rune
+		s.consume() // consume current rune
 		v := match(s.rs, func(r rune) (bool, bool, error) {
 			return true, false, nil
 		})
 		return token.Rune([]rune(v)[0]), nil
 	case r == '\n':
-		s.Consume()
+		s.consume()
 		return token.Rune(r), nil
 	case r == '*', r == '_', r == '/':
-		return token.Rune(s.Consume()), nil
+		return token.Rune(s.consume()), nil
 	case unicode.IsSpace(r):
 		v := match(s.rs, func(r rune) (bool, bool, error) {
 			if unicode.IsSpace(r) {
@@ -119,4 +114,21 @@ func (s *Scanner) Next() (token.Token, error) {
 		})
 		return token.Atom(v), nil
 	}
+}
+
+func (s *Scanner) Scan() <-chan token.Token {
+	ch := make(chan token.Token)
+
+	go func() {
+		for {
+			t, err := s.Next()
+			if err != nil {
+				break
+			}
+			ch <- t
+		}
+		close(ch)
+	}()
+
+	return ch
 }

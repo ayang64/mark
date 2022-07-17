@@ -9,8 +9,7 @@ import (
 )
 
 func TestScanner(t *testing.T) {
-	s := Scanner{
-		rs: strings.NewReader(`= Hello, World
+	data := `= Hello, World
 ` + "```" + `
 block quote
 ` + "```" + `
@@ -24,7 +23,9 @@ block quote
 == second level heading
 
 paragraph text
-`),
+`
+	s := Scanner{
+		rs: strings.NewReader(data),
 	}
 
 	for {
@@ -33,6 +34,12 @@ paragraph text
 			break
 		}
 		log.Printf("%[1]s (%[1]T)", t)
+	}
+
+	s.rs = strings.NewReader(data)
+
+	for t := range s.Scan() {
+		log.Printf("sc: %[1]s (%[1]T)", t)
 	}
 }
 
